@@ -1,0 +1,18 @@
+[package]
+name = "avio"
+version = "0.1.0"
+edition = "2021"
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-L", "C:/Program Files/sdl2"]
+
+[dependencies]
+ffmpeg-next = "7.1.0"
+eframe = "0.29.0"
+egui = "0.29.0"
+rodio = "0.20.1"
+num_cpus = "1.16.0"
+rfd = "0.15"
+
+[profile.release]
+debug=1
