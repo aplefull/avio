@@ -1,9 +1,9 @@
-use ffmpeg_next as ffmpeg;
 use ffmpeg::{codec, format, frame, media};
+use ffmpeg_next as ffmpeg;
+use ffmpeg_next::{Rational, Rescale};
 use rodio::{OutputStream, Sink, Source};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use ffmpeg_next::{Rational, Rescale};
 
 const MS_TIME_BASE: Rational = Rational(1, 1000);
 
@@ -33,8 +33,12 @@ impl DecodedAudio {
         let sample_rate = decoder.rate() / decoder.channels() as u32;
         let channels = decoder.channels();
 
-        println!("Decoding audio: sample rate={}Hz, channels={}", decoder.rate(), channels);
-        
+        println!(
+            "Decoding audio: sample rate={}Hz, channels={}",
+            decoder.rate(),
+            channels
+        );
+
         let decoding_start = std::time::Instant::now();
         let mut samples = Vec::new();
         let mut duration_ms = 0;
@@ -70,7 +74,7 @@ impl DecodedAudio {
                         } else {
                             samples.extend_from_slice(frame_samples);
                         }
-                    },
+                    }
                     other_format => {
                         let mut converted = frame::Audio::empty();
                         if let Ok(_) = ffmpeg::software::resampling::context::Context::get(
@@ -80,9 +84,11 @@ impl DecodedAudio {
                             format::Sample::F32(format::sample::Type::Planar),
                             decoded.channel_layout(),
                             decoded.rate(),
-                        ).and_then(|mut converter| converter.run(&decoded, &mut converted)) {
+                        )
+                        .and_then(|mut converter| converter.run(&decoded, &mut converted))
+                        {
                             let frame_samples = converted.plane::<f32>(0);
-                            
+
                             if channels == 1 {
                                 for &sample in frame_samples {
                                     samples.push(sample);
@@ -99,8 +105,12 @@ impl DecodedAudio {
             }
         }
 
-        println!("Finished decoding {} audio samples, duration: {}ms, took {}ms",
-                 samples.len(), duration_ms, decoding_start.elapsed().as_millis());
+        println!(
+            "Finished decoding {} audio samples, duration: {}ms, took {}ms",
+            samples.len(),
+            duration_ms,
+            decoding_start.elapsed().as_millis()
+        );
 
         Ok(DecodedAudio {
             samples,
@@ -129,7 +139,11 @@ struct MemoryAudioSource {
 }
 
 impl MemoryAudioSource {
-    fn new(decoded_audio: Arc<DecodedAudio>, start_pos: usize, current_time_ms: Arc<Mutex<i64>>) -> Self {
+    fn new(
+        decoded_audio: Arc<DecodedAudio>,
+        start_pos: usize,
+        current_time_ms: Arc<Mutex<i64>>,
+    ) -> Self {
         let ms = decoded_audio.sample_pos_to_ms(start_pos);
         *current_time_ms.lock().unwrap() = ms;
 
@@ -162,9 +176,15 @@ impl Iterator for MemoryAudioSource {
 }
 
 impl Source for MemoryAudioSource {
-    fn channels(&self) -> u16 { 2 }
-    fn sample_rate(&self) -> u32 { self.decoded_audio.sample_rate }
-    fn current_frame_len(&self) -> Option<usize> { None }
+    fn channels(&self) -> u16 {
+        2
+    }
+    fn sample_rate(&self) -> u32 {
+        self.decoded_audio.sample_rate
+    }
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
     fn total_duration(&self) -> Option<Duration> {
         let total_seconds = (self.decoded_audio.duration_ms / 1000) as u64;
         Some(Duration::from_secs(total_seconds))
@@ -201,11 +221,7 @@ impl Audio {
         let current_time_ms = Arc::new(Mutex::new(0i64));
         let was_playing = Arc::new(Mutex::new(true));
 
-        let source = MemoryAudioSource::new(
-            decoded_audio.clone(),
-            0,
-            current_time_ms.clone()
-        );
+        let source = MemoryAudioSource::new(decoded_audio.clone(), 0, current_time_ms.clone());
 
         let source = source.repeat_infinite();
 
@@ -238,7 +254,7 @@ impl Audio {
         let source = MemoryAudioSource::new(
             self.decoded_audio.clone(),
             sample_pos,
-            self.current_time_ms.clone()
+            self.current_time_ms.clone(),
         );
 
         let source = source.repeat_infinite();

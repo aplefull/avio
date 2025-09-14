@@ -53,12 +53,10 @@ impl Video {
         let time_base = video_stream.time_base();
         let mut decoder_ctx = codec::context::Context::from_parameters(video_stream.parameters())?;
 
-        decoder_ctx.set_threading(
-            ffmpeg::threading::Config {
-                count: num_cpus::get(),
-                kind: Frame,
-            }
-        );
+        decoder_ctx.set_threading(ffmpeg::threading::Config {
+            count: num_cpus::get(),
+            kind: Frame,
+        });
 
         let decoder = decoder_ctx.decoder().video()?;
 
@@ -68,7 +66,10 @@ impl Video {
         let min_reasonable_duration = (1000.0 / fps) as i64 * 10;
 
         let duration_ms = if reported_duration < min_reasonable_duration {
-            println!("Reported duration too small ({}ms) → Calculating from packets...", reported_duration);
+            println!(
+                "Reported duration too small ({}ms) → Calculating from packets...",
+                reported_duration
+            );
             Video::calculate_duration(&mut input_context, stream_index)
         } else {
             reported_duration
@@ -127,16 +128,16 @@ impl Video {
                 Ok(_) => {
                     if let Some(pts) = decoded.pts() {
                         let pts_ms = timestamp_to_ms(pts, self.time_base);
-                        
+
                         if self.just_seeked {
                             self.frames_decoded_since_seek += 1;
-                            
+
                             if self.frames_decoded_since_seek > 300 {
                                 self.current_timestamp_ms = pts_ms;
                                 self.just_seeked = false;
                                 return Some(self.convert_frame(decoded));
                             }
-                            
+
                             if pts_ms == 0 {
                             } else if pts_ms >= self.seek_target_ms {
                                 self.current_timestamp_ms = pts_ms;
@@ -203,9 +204,7 @@ impl Video {
 
                 30.0
             }
-            None => {
-                30.0
-            }
+            None => 30.0,
         }
     }
 
@@ -220,7 +219,7 @@ impl Video {
         let mut buffer = vec![0u8; self.video_width * self.video_height * 4];
         let data = rgb_frame.data(0);
         let line_size = rgb_frame.stride(0);
-        
+
         self.convert_rgb_to_rgba_fast(data, line_size, &mut buffer);
 
         Ok(VideoFrame {
@@ -229,7 +228,7 @@ impl Video {
             buffer,
         })
     }
-    
+
     #[inline]
     fn convert_rgb_to_rgba_fast(&self, src: &[u8], line_size: usize, dst: &mut [u8]) {
         for y in 0..self.video_height {
@@ -240,29 +239,28 @@ impl Video {
                     let dst_idx = (y * self.video_width + x + i) * 4;
 
                     if src_idx + 2 < src.len() && dst_idx + 3 < dst.len() {
-                        dst[dst_idx] = src[src_idx];        
+                        dst[dst_idx] = src[src_idx];
                         dst[dst_idx + 1] = src[src_idx + 1];
                         dst[dst_idx + 2] = src[src_idx + 2];
-                        dst[dst_idx + 3] = 0xFF;            
+                        dst[dst_idx + 3] = 0xFF;
                     }
                 }
             }
         }
     }
-    
+
     fn seek_to_ms_accurate(&mut self, target_ms: i64) -> Result<(), Box<dyn std::error::Error>> {
-        
         self.decoder.flush();
-        
+
         let target_ts = ms_to_timestamp(target_ms, rescale::TIME_BASE);
-        
+
         self.input_context.seek(target_ts, ..target_ts)?;
-        
+
         self.just_seeked = true;
         self.seek_target_ms = target_ms;
         self.frames_decoded_since_seek = 0;
         self.current_timestamp_ms = target_ms;
-        
+
         Ok(())
     }
 }

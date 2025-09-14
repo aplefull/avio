@@ -1,8 +1,8 @@
+use ffmpeg::{codec, format, media, Rational};
 use ffmpeg_next as ffmpeg;
-use ffmpeg::{format, media, codec, Rational};
-use std::collections::HashMap;
 use ffmpeg_next::codec::{Capabilities, Profile};
 use ffmpeg_next::{color, ChannelLayout};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct MediaInfo {
@@ -113,7 +113,7 @@ impl From<Rational> for RationalValue {
 
 pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
     match ffmpeg::init() {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             return None;
         }
@@ -136,7 +136,11 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
         subtitle_streams: Vec::new(),
         other_streams: Vec::new(),
         chapters: Vec::new(),
-        metadata: input.metadata().iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        metadata: input
+            .metadata()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
     };
 
     for (index, stream) in input.streams().enumerate() {
@@ -155,30 +159,28 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
         };
 
         let codec_capabilities = match codec {
-            Some(c) => {
-                Some(c.capabilities())
-            },
+            Some(c) => Some(c.capabilities()),
             None => None,
         };
 
-         let codec_profiles = match codec {
+        let codec_profiles = match codec {
             Some(c) => {
                 let iterator = c.profiles();
 
                 match iterator {
-                    Some(i) => {
-                        Some(i.map(|p| p).collect::<Vec<_>>())
-                    },
-                    None => None
+                    Some(i) => Some(i.map(|p| p).collect::<Vec<_>>()),
+                    None => None,
                 }
-            },
+            }
             None => None,
         };
 
         let codec_id_str = format!("{:?}", codec_id);
         let time_base = RationalValue::from(stream.time_base());
         let disposition = stream.disposition();
-        let metadata: HashMap<String, String> = stream.metadata().iter()
+        let metadata: HashMap<String, String> = stream
+            .metadata()
+            .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
 
@@ -188,8 +190,7 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
                 let video_params = video.parameters();
                 let context = ffmpeg::codec::Context::from_parameters(video_params).unwrap();
                 let decoder = context.decoder().video().unwrap();
-                
-                
+
                 let mut vs_info = VideoStreamInfo {
                     index,
                     codec_name,
@@ -218,7 +219,7 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
                 vs_info.aspect_ratio = Some(RationalValue::from(decoder.aspect_ratio()));
 
                 info.video_streams.push(vs_info);
-            },
+            }
             media::Type::Audio => {
                 let mut as_info = AudioStreamInfo {
                     index,
@@ -238,12 +239,12 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
                     disposition: disposition.bits() as u32,
                     metadata,
                 };
-                
+
                 let audio = input.stream(index).unwrap();
                 let audio_params = audio.parameters();
                 let context = ffmpeg::codec::Context::from_parameters(audio_params).unwrap();
                 let decoder = context.decoder().audio().unwrap();
-                
+
                 as_info.channels = Some(decoder.channels());
                 as_info.sample_rate = Some(decoder.rate());
                 as_info.sample_format = Some(decoder.format());
@@ -252,7 +253,7 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
                 as_info.bit_rate = Some(decoder.bit_rate());
 
                 info.audio_streams.push(as_info);
-            },
+            }
             media::Type::Subtitle => {
                 let language = metadata.get("language").cloned();
 
@@ -267,7 +268,7 @@ pub fn get_media_info(filename: &str) -> Option<MediaInfo> {
                 };
 
                 info.subtitle_streams.push(ss_info);
-            },
+            }
             other_medium => {
                 let os_info = OtherStreamInfo {
                     index,
@@ -294,9 +295,9 @@ fn estimate_frame_count(filename: &str, stream_index: usize) -> Option<u64> {
             return None;
         }
     };
-    
+
     let frames = input.streams().nth(stream_index)?.frames();
-    
+
     if frames > 0 {
         return Some(frames as u64);
     }
